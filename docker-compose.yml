@@ -1,0 +1,31 @@
+services:
+  db:
+    image: postgis/postgis:16-3.4-alpine
+    environment:
+      POSTGRES_USER: crop
+      POSTGRES_PASSWORD: crop
+      POSTGRES_DB: crop_fields
+    ports:
+      - "${DB_PORT:-5433}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      # TCP check: during initdb the temporary server listens on the socket only,
+      # so this does not report healthy before PostGIS init scripts finish.
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U crop -d crop_fields"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  api:
+    build: .
+    environment:
+      DATABASE_URL: postgresql+asyncpg://crop:crop@db:5432/crop_fields
+    ports:
+      - "${API_PORT:-8000}:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  pgdata:
